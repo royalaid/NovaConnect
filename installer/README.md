@@ -27,10 +27,11 @@ The output is `artifacts/installer/NovaConnect-Setup-0.1.0.exe`.
 
 ## Verify
 
-The verification requires NovaConnect to be uninstalled and stopped first. It installs into a
-temporary per-user directory, checks both Start Menu shortcuts and the Windows Installed Apps
-entry, launches the installed executable, runs the uninstaller, confirms cleanup, and restores
-the pre-test startup registry value.
+The verification requires NovaConnect to be uninstalled and stopped first. It uses a unique
+temporary install location, temporarily isolates and restores the real NovaConnect app-data
+and Start Menu directories, checks both Start Menu shortcuts and the Windows Installed Apps
+entry, validates startup-command migration, launches the installed executable, runs the
+uninstaller, confirms cleanup, and restores the pre-test startup value.
 
 ```powershell
 pwsh -File installer/verify-installer.ps1 `

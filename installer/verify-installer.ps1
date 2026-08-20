@@ -5,10 +5,18 @@ param(
 
 $ErrorActionPreference = "Stop"
 $installer = (Resolve-Path -LiteralPath $InstallerPath).Path
-$testRoot = Join-Path $env:LOCALAPPDATA "Temp\NovaConnect-InstallerTest"
+$testId = [Guid]::NewGuid().ToString("N")
+$testRoot = Join-Path $env:LOCALAPPDATA "Temp\NovaConnect-InstallerTest-$testId"
+$appDataDirectory = Join-Path $env:LOCALAPPDATA "NovaConnect"
+$appDataBackup = Join-Path $env:LOCALAPPDATA "Temp\NovaConnect-InstallerTest-AppData-$testId"
+$hadAppDataDirectory = $false
+$testAppDataActive = $false
 $installedExe = Join-Path $testRoot "NovaConnect.exe"
 $uninstaller = Join-Path $testRoot "unins000.exe"
 $startMenuDirectory = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\NovaConnect"
+$startMenuBackup = Join-Path $env:LOCALAPPDATA "Temp\NovaConnect-InstallerTest-StartMenu-$testId"
+$hadStartMenuDirectory = $false
+$testStartMenuActive = $false
 $appShortcut = Join-Path $startMenuDirectory "NovaConnect.lnk"
 $uninstallShortcut = Join-Path $startMenuDirectory "Uninstall NovaConnect.lnk"
 $uninstallRegistryPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{A19467AF-B45A-40B1-A4B5-44A9760BF066}_is1"
@@ -35,10 +43,18 @@ try {
     if (Get-Process NovaConnect -ErrorAction SilentlyContinue) {
         throw "Installer verification requires all NovaConnect processes to be stopped first."
     }
+    if (Test-Path -LiteralPath $appDataDirectory) {
+        Move-Item -LiteralPath $appDataDirectory -Destination $appDataBackup
+        $hadAppDataDirectory = $true
+    }
+    $testAppDataActive = $true
+    if (Test-Path -LiteralPath $startMenuDirectory) {
+        Move-Item -LiteralPath $startMenuDirectory -Destination $startMenuBackup
+        $hadStartMenuDirectory = $true
+    }
+    $testStartMenuActive = $true
     New-Item -Path $runKey -Force | Out-Null
     Set-ItemProperty -LiteralPath $runKey -Name $runValueName -Value $legacyStartupCommand
-    Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue
-    Remove-Item -LiteralPath $startMenuDirectory -Recurse -Force -ErrorAction SilentlyContinue
 
     $install = Start-Process -FilePath $installer -ArgumentList @(
         "/VERYSILENT",
@@ -121,7 +137,18 @@ finally {
         ) -Wait | Out-Null
     }
     Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue
-    Remove-Item -LiteralPath $startMenuDirectory -Recurse -Force -ErrorAction SilentlyContinue
+    if ($testStartMenuActive) {
+        Remove-Item -LiteralPath $startMenuDirectory -Recurse -Force -ErrorAction SilentlyContinue
+        if ($hadStartMenuDirectory -and (Test-Path -LiteralPath $startMenuBackup)) {
+            Move-Item -LiteralPath $startMenuBackup -Destination $startMenuDirectory
+        }
+    }
+    if ($testAppDataActive) {
+        Remove-Item -LiteralPath $appDataDirectory -Recurse -Force -ErrorAction SilentlyContinue
+        if ($hadAppDataDirectory -and (Test-Path -LiteralPath $appDataBackup)) {
+            Move-Item -LiteralPath $appDataBackup -Destination $appDataDirectory
+        }
+    }
 
     if ($hadStartupValue) {
         New-Item -Path $runKey -Force | Out-Null
