@@ -24,6 +24,9 @@ $runKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
 $runValueName = "NovaConnect"
 $hadStartupValue = $false
 $startupValue = $null
+$startupStateCaptured = $false
+$testError = $null
+$cleanupErrors = [System.Collections.Generic.List[System.Exception]]::new()
 $legacyStartupCommand = '"C:\Legacy NovaConnect\NovaConnect.exe" --background'
 
 if (Test-Path -LiteralPath $uninstallRegistryPath) {
@@ -39,6 +42,7 @@ try {
     }
     catch [System.Management.Automation.PSArgumentException] {
     }
+    $startupStateCaptured = $true
 
     if (Get-Process NovaConnect -ErrorAction SilentlyContinue) {
         throw "Installer verification requires all NovaConnect processes to be stopped first."
@@ -122,39 +126,109 @@ try {
     }
     catch [System.Management.Automation.PSArgumentException] {
     }
-
-    Write-Output "Installer verification passed."
+}
+catch {
+    $testError = $_.Exception
 }
 finally {
-    Get-Process NovaConnect -ErrorAction SilentlyContinue |
-        Where-Object { $_.Path -and [string]::Equals($_.Path, $installedExe, [System.StringComparison]::OrdinalIgnoreCase) } |
-        Stop-Process -Force
-    if (Test-Path -LiteralPath $uninstaller) {
-        Start-Process -FilePath $uninstaller -ArgumentList @(
-            "/VERYSILENT",
-            "/SUPPRESSMSGBOXES",
-            "/NORESTART"
-        ) -Wait | Out-Null
+    try {
+        Get-Process NovaConnect -ErrorAction SilentlyContinue |
+            Where-Object { $_.Path -and [string]::Equals($_.Path, $installedExe, [System.StringComparison]::OrdinalIgnoreCase) } |
+            Stop-Process -Force -ErrorAction Stop
     }
-    Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue
-    if ($testStartMenuActive) {
-        Remove-Item -LiteralPath $startMenuDirectory -Recurse -Force -ErrorAction SilentlyContinue
-        if ($hadStartMenuDirectory -and (Test-Path -LiteralPath $startMenuBackup)) {
-            Move-Item -LiteralPath $startMenuBackup -Destination $startMenuDirectory
-        }
-    }
-    if ($testAppDataActive) {
-        Remove-Item -LiteralPath $appDataDirectory -Recurse -Force -ErrorAction SilentlyContinue
-        if ($hadAppDataDirectory -and (Test-Path -LiteralPath $appDataBackup)) {
-            Move-Item -LiteralPath $appDataBackup -Destination $appDataDirectory
-        }
+    catch {
+        [void]$cleanupErrors.Add($_.Exception)
     }
 
-    if ($hadStartupValue) {
-        New-Item -Path $runKey -Force | Out-Null
-        Set-ItemProperty -LiteralPath $runKey -Name $runValueName -Value $startupValue
+    try {
+        if (Test-Path -LiteralPath $uninstaller) {
+            $fallbackUninstall = Start-Process -FilePath $uninstaller -ArgumentList @(
+                "/VERYSILENT",
+                "/SUPPRESSMSGBOXES",
+                "/NORESTART"
+            ) -Wait -PassThru
+            if ($fallbackUninstall.ExitCode -ne 0) {
+                throw "Fallback uninstaller exited with code $($fallbackUninstall.ExitCode)."
+            }
+        }
     }
-    else {
-        Remove-ItemProperty -LiteralPath $runKey -Name $runValueName -ErrorAction SilentlyContinue
+    catch {
+        [void]$cleanupErrors.Add($_.Exception)
+    }
+
+    try {
+        if ($testStartMenuActive) {
+            if (Test-Path -LiteralPath $startMenuDirectory) {
+                Remove-Item -LiteralPath $startMenuDirectory -Recurse -Force -ErrorAction Stop
+            }
+            if ($hadStartMenuDirectory) {
+                if (-not (Test-Path -LiteralPath $startMenuBackup)) {
+                    throw "Start Menu backup is missing: $startMenuBackup"
+                }
+                Move-Item -LiteralPath $startMenuBackup -Destination $startMenuDirectory -ErrorAction Stop
+            }
+        }
+    }
+    catch {
+        [void]$cleanupErrors.Add($_.Exception)
+    }
+
+    try {
+        if ($testAppDataActive) {
+            if (Test-Path -LiteralPath $appDataDirectory) {
+                Remove-Item -LiteralPath $appDataDirectory -Recurse -Force -ErrorAction Stop
+            }
+            if ($hadAppDataDirectory) {
+                if (-not (Test-Path -LiteralPath $appDataBackup)) {
+                    throw "App-data backup is missing: $appDataBackup"
+                }
+                Move-Item -LiteralPath $appDataBackup -Destination $appDataDirectory -ErrorAction Stop
+            }
+        }
+    }
+    catch {
+        [void]$cleanupErrors.Add($_.Exception)
+    }
+
+    try {
+        if ($startupStateCaptured) {
+            if ($hadStartupValue) {
+                New-Item -Path $runKey -Force -ErrorAction Stop | Out-Null
+                Set-ItemProperty -LiteralPath $runKey -Name $runValueName -Value $startupValue -ErrorAction Stop
+            }
+            else {
+                Remove-ItemProperty -LiteralPath $runKey -Name $runValueName -ErrorAction SilentlyContinue
+            }
+        }
+    }
+    catch {
+        [void]$cleanupErrors.Add($_.Exception)
+    }
+
+    try {
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction Stop
+        }
+    }
+    catch {
+        [void]$cleanupErrors.Add($_.Exception)
     }
 }
+
+$allErrors = [System.Collections.Generic.List[System.Exception]]::new()
+if ($null -ne $testError) {
+    [void]$allErrors.Add($testError)
+}
+foreach ($cleanupError in $cleanupErrors) {
+    [void]$allErrors.Add($cleanupError)
+}
+if ($allErrors.Count -eq 1) {
+    throw $allErrors[0]
+}
+if ($allErrors.Count -gt 1) {
+    throw [System.AggregateException]::new(
+        "Installer verification failed and one or more cleanup operations also failed.",
+        $allErrors.ToArray())
+}
+
+Write-Output "Installer verification passed."
