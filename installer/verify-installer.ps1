@@ -115,8 +115,9 @@ try {
 
     if ((Test-Path -LiteralPath $installedExe) -or
         (Test-Path -LiteralPath $appShortcut) -or
+        (Test-Path -LiteralPath $uninstallShortcut) -or
         (Test-Path -LiteralPath $uninstallRegistryPath)) {
-        throw "Uninstall left the executable, Start Menu shortcut, or Installed Apps entry behind."
+        throw "Uninstall left the executable, Start Menu shortcut, uninstall shortcut, or Installed Apps entry behind."
     }
     try {
         $remainingStartupCommand = Get-ItemPropertyValue -LiteralPath $runKey -Name $runValueName -ErrorAction Stop
@@ -150,6 +151,18 @@ finally {
             if ($fallbackUninstall.ExitCode -ne 0) {
                 throw "Fallback uninstaller exited with code $($fallbackUninstall.ExitCode)."
             }
+        }
+    }
+    catch {
+        [void]$cleanupErrors.Add($_.Exception)
+    }
+
+    try {
+        if (Test-Path -LiteralPath $uninstallRegistryPath) {
+            Remove-Item -LiteralPath $uninstallRegistryPath -Recurse -Force -ErrorAction Stop
+        }
+        if (Test-Path -LiteralPath $uninstallRegistryPath) {
+            throw "Test-owned Installed Apps entry remains: $uninstallRegistryPath"
         }
     }
     catch {
@@ -197,7 +210,13 @@ finally {
                 Set-ItemProperty -LiteralPath $runKey -Name $runValueName -Value $startupValue -ErrorAction Stop
             }
             else {
-                Remove-ItemProperty -LiteralPath $runKey -Name $runValueName -ErrorAction SilentlyContinue
+                try {
+                    Remove-ItemProperty -LiteralPath $runKey -Name $runValueName -ErrorAction Stop
+                }
+                catch [System.Management.Automation.ItemNotFoundException] {
+                }
+                catch [System.Management.Automation.PSArgumentException] {
+                }
             }
         }
     }
