@@ -5,6 +5,8 @@ namespace NovaConnect.App;
 internal sealed class FileLogger
 {
     private const long DefaultMaxBytes = 1_048_576;
+    private const int RotationAttempts = 3;
+    private const int RotationRetryDelayMs = 25;
     private readonly object _gate = new();
     private readonly string _path;
     private readonly long _maxBytes;
@@ -30,10 +32,28 @@ internal sealed class FileLogger
             long incomingBytes = Encoding.UTF8.GetByteCount(line);
             if (existingBytes > 0 && existingBytes + incomingBytes > _maxBytes)
             {
-                File.Move(_path, _path + ".1", overwrite: true);
+                RotateLog();
             }
 
             File.AppendAllText(_path, line);
+        }
+    }
+
+    private void RotateLog()
+    {
+        for (int attempt = 1; ; attempt++)
+        {
+            try
+            {
+                File.Move(_path, _path + ".1", overwrite: true);
+                return;
+            }
+            catch (Exception exception) when (
+                attempt < RotationAttempts
+                && exception is IOException or UnauthorizedAccessException)
+            {
+                Thread.Sleep(RotationRetryDelayMs);
+            }
         }
     }
 }
