@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AssemblyName>NovaConnect</AssemblyName>
+    <RootNamespace>NovaConnect.App</RootNamespace>
+    <Version>0.1.0</Version>
+    <Product>NovaConnect</Product>
+    <Company>NovaConnect contributors</Company>
+    <Description>Arctis Nova 5 connection detection and Windows audio fallback.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../NovaConnect.Core/NovaConnect.Core.csproj" />
+    <PackageReference Include="HidSharp" Version="2.6.4" />
+  </ItemGroup>
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>NovaConnect.App.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+</Project>
