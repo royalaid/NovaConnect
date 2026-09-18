@@ -44,6 +44,8 @@ internal sealed class SettingsForm : Form
     private readonly Icon _windowIcon;
     private readonly Bitmap _headerBitmap;
     private readonly TableLayoutPanel _content;
+    private readonly ThemedTableLayoutPanel _statusBanner;
+    private readonly Label _statusLabel;
 
     internal AppConfiguration Configuration { get; private set; }
     internal bool StartWithWindows => _startWithWindows.Checked;
@@ -71,6 +73,24 @@ internal sealed class SettingsForm : Form
         AutoScaleMode = AutoScaleMode.Dpi;
         DoubleBuffered = true;
 
+        _statusBanner = new ThemedTableLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            ColumnCount = 1,
+            Padding = new Padding(10, 7, 10, 7),
+            Margin = new Padding(0, 0, 0, 10)
+        };
+        _statusLabel = new Label
+        {
+            AutoSize = true,
+            Font = UiTheme.SmallSemiboldFont,
+            Margin = new Padding(0),
+            AccessibleName = "Headset status"
+        };
+        _statusBanner.Controls.Add(_statusLabel);
+        ApplyStatus(statusText);
+
         var shell = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
@@ -83,7 +103,7 @@ internal sealed class SettingsForm : Form
         shell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         shell.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 64));
-        _content = CreateContent(statusText);
+        _content = CreateContent();
         shell.Controls.Add(_content, 0, 0);
         shell.Controls.Add(CreateFooter(), 0, 1);
         Controls.Add(shell);
@@ -126,7 +146,7 @@ internal sealed class SettingsForm : Form
         base.Dispose(disposing);
     }
 
-    private TableLayoutPanel CreateContent(string statusText)
+    private TableLayoutPanel CreateContent()
     {
         var content = new TableLayoutPanel
         {
@@ -142,9 +162,40 @@ internal sealed class SettingsForm : Form
         content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         content.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         content.Controls.Add(CreateHeader(), 0, 0);
-        content.Controls.Add(CreateStatusBanner(statusText), 0, 1);
+        content.Controls.Add(_statusBanner, 0, 1);
         content.Controls.Add(CreateMainGrid(), 0, 2);
         return content;
+    }
+
+    internal void UpdateStatus(string statusText)
+    {
+        if (IsDisposed)
+        {
+            return;
+        }
+
+        ApplyStatus(statusText);
+    }
+
+    private void ApplyStatus(string statusText)
+    {
+        StatusPresentation status = StatusPresentation.FromText(statusText);
+        string label = "●  " + status.Text;
+        Color foreground = UiTheme.StatusForeground(status.Tone);
+        Color background = UiTheme.StatusBackground(status.Tone);
+        if (_statusLabel.Text == label
+            && _statusBanner.BackColor == background
+            && _statusBanner.BorderColor == foreground)
+        {
+            return;
+        }
+
+        _statusBanner.BackColor = background;
+        _statusBanner.BorderColor = foreground;
+        _statusLabel.Text = label;
+        _statusLabel.BackColor = background;
+        _statusLabel.ForeColor = foreground;
+        _statusBanner.Invalidate();
     }
 
     private void FitToWorkingArea()
@@ -217,31 +268,6 @@ internal sealed class SettingsForm : Form
         });
         header.Controls.Add(text, 1, 0);
         return header;
-    }
-
-    private static Control CreateStatusBanner(string statusText)
-    {
-        StatusPresentation status = StatusPresentation.FromText(statusText);
-        var banner = new ThemedTableLayoutPanel
-        {
-            Dock = DockStyle.Top,
-            AutoSize = true,
-            BackColor = UiTheme.StatusBackground(status.Tone),
-            BorderColor = UiTheme.StatusForeground(status.Tone),
-            ColumnCount = 1,
-            Padding = new Padding(10, 7, 10, 7),
-            Margin = new Padding(0, 0, 0, 10)
-        };
-        banner.Controls.Add(new Label
-        {
-            Text = "●  " + status.Text,
-            AutoSize = true,
-            BackColor = banner.BackColor,
-            ForeColor = UiTheme.StatusForeground(status.Tone),
-            Font = UiTheme.SmallSemiboldFont,
-            Margin = new Padding(0)
-        });
-        return banner;
     }
 
     private Control CreateMainGrid()

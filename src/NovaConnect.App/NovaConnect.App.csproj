@@ -9,7 +9,7 @@
     <AssemblyName>NovaConnect</AssemblyName>
     <ApplicationIcon>Assets\NovaConnect.ico</ApplicationIcon>
     <RootNamespace>NovaConnect.App</RootNamespace>
-    <Version>0.1.2</Version>
+    <Version>0.1.3</Version>
     <Product>NovaConnect</Product>
     <Company>NovaConnect contributors</Company>
     <Description>Arctis Nova 5 connection detection and Windows audio fallback.</Description>
