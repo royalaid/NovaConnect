@@ -172,6 +172,57 @@ public sealed class MonitorEngineTests
         Assert.Equal((AudioFlow.Capture, "live-headset-mic"), audio.Applied[1]);
     }
 
+    [Fact]
+    public async Task RunIterationAsync_InactiveHeadsetEndpoint_TreatsAsDisconnectedWithoutHid()
+    {
+        var statusSource = new ThrowingStatusSource();
+        var audio = new PresenceAudioController();
+        var configuration = new AppConfiguration
+        {
+            HeadsetPlaybackId = "headset-out",
+            HeadsetPlaybackName = "Headphones (WH-1000XM5)",
+            FallbackPlaybackId = "speakers",
+            FallbackPlaybackName = "Speakers",
+            SwitchMicrophone = false,
+            SwitchOnStartup = true
+        };
+        var engine = new MonitorEngine(statusSource, audio, configuration);
+
+        MonitorIterationResult first = await engine.RunIterationAsync(CancellationToken.None);
+        MonitorIterationResult confirmed = await engine.RunIterationAsync(CancellationToken.None);
+
+        Assert.False(first.Status.IsConnected);
+        Assert.Equal(ConnectionTransition.None, first.Transition);
+        Assert.False(confirmed.Status.IsConnected);
+        Assert.Equal(ConnectionTransition.Disconnected, confirmed.Transition);
+        Assert.Equal([(AudioFlow.Playback, "speakers")], audio.Applied);
+        Assert.Equal(0, statusSource.Calls);
+    }
+
+    [Fact]
+    public async Task RunIterationAsync_ActiveHeadsetWithoutWirelessProbe_TreatsAsConnected()
+    {
+        var statusSource = new ThrowingStatusSource();
+        var audio = new ActiveHeadsetAudioController();
+        var configuration = new AppConfiguration
+        {
+            HeadsetPlaybackId = "headset-out",
+            HeadsetPlaybackName = "Headphones (WH-1000XM5)",
+            FallbackPlaybackId = "speakers",
+            FallbackPlaybackName = "Speakers",
+            SwitchMicrophone = false,
+            SwitchOnStartup = true
+        };
+        var engine = new MonitorEngine(statusSource, audio, configuration);
+
+        MonitorIterationResult result = await engine.RunIterationAsync(CancellationToken.None);
+
+        Assert.True(result.Status.IsConnected);
+        Assert.Equal(ConnectionTransition.Connected, result.Transition);
+        Assert.Equal([(AudioFlow.Playback, "headset-out")], audio.Applied);
+        Assert.Equal(1, statusSource.Calls);
+    }
+
     private sealed class FakeStatusSource(Nova5Status status) : IHeadsetStatusSource
     {
         public Task<Nova5Status> QueryOnceAsync(CancellationToken cancellationToken) =>
@@ -302,5 +353,62 @@ public sealed class MonitorEngineTests
 
             Applied.Add((flow, endpointId));
         }
+    }
+
+    private sealed class ThrowingStatusSource : IHeadsetStatusSource
+    {
+        public int Calls { get; private set; }
+
+        public Task<Nova5Status> QueryOnceAsync(CancellationToken cancellationToken)
+        {
+            Calls++;
+            throw new InvalidOperationException("HID should not be queried when the endpoint is inactive.");
+        }
+    }
+
+    private sealed class PresenceAudioController : IAudioEndpointController
+    {
+        public List<(AudioFlow Flow, string Id)> Applied { get; } = [];
+
+        public DefaultEndpointSnapshot GetDefaultEndpointIds(AudioFlow flow)
+        {
+            string id = flow == AudioFlow.Playback ? "headset-out" : "desk-mic";
+            return new DefaultEndpointSnapshot(id, id, id);
+        }
+
+        public IReadOnlyList<AudioEndpoint> EnumerateEndpoints() =>
+        [
+            new("headset-out", "Headphones (WH-1000XM5)", AudioFlow.Playback, false),
+            new("speakers", "Speakers", AudioFlow.Playback, true)
+        ];
+
+        public void SetDefaultEndpoints(
+            AudioFlow flow,
+            string endpointId,
+            IReadOnlyCollection<DefaultEndpointRole> roles) =>
+            Applied.Add((flow, endpointId));
+    }
+
+    private sealed class ActiveHeadsetAudioController : IAudioEndpointController
+    {
+        public List<(AudioFlow Flow, string Id)> Applied { get; } = [];
+
+        public DefaultEndpointSnapshot GetDefaultEndpointIds(AudioFlow flow)
+        {
+            string id = flow == AudioFlow.Playback ? "speakers" : "desk-mic";
+            return new DefaultEndpointSnapshot(id, id, id);
+        }
+
+        public IReadOnlyList<AudioEndpoint> EnumerateEndpoints() =>
+        [
+            new("headset-out", "Headphones (WH-1000XM5)", AudioFlow.Playback, true),
+            new("speakers", "Speakers", AudioFlow.Playback, true)
+        ];
+
+        public void SetDefaultEndpoints(
+            AudioFlow flow,
+            string endpointId,
+            IReadOnlyCollection<DefaultEndpointRole> roles) =>
+            Applied.Add((flow, endpointId));
     }
 }

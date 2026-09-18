@@ -9,7 +9,7 @@ internal static class Nova5HidProbe
     {
         HidDevice device = FindControlInterface()
             ?? throw new InvalidOperationException(
-                "SteelSeries Arctis Nova 5 HID control interface was not found.");
+                "Wireless headset HID control interface was not found.");
 
         var openConfiguration = new OpenConfiguration();
         openConfiguration.SetOption(OpenOption.Exclusive, false);
@@ -86,8 +86,10 @@ internal static class Nova5HidProbe
     private static HidDevice? FindControlInterface()
     {
         return DeviceList.Local
-            .GetHidDevices(Nova5Protocol.VendorId, Nova5Protocol.ProductId)
-            .FirstOrDefault(HasNova5ControlUsage);
+            .GetHidDevices(Nova5Protocol.VendorId)
+            .Where(HasNova5ControlUsage)
+            .OrderBy(device => device.ProductID == Nova5Protocol.ProductId ? 0 : 1)
+            .FirstOrDefault();
     }
 
     private static bool HasNova5ControlUsage(HidDevice device)

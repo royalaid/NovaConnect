@@ -4,8 +4,6 @@ namespace NovaConnect.App;
 
 internal static class AudioEndpointResolver
 {
-    internal const string HeadsetNameFragment = "Arctis Nova 5";
-
     private static readonly Regex UsbCompositePrefix = new(
         @"\(\s*\d+\s*-\s*",
         RegexOptions.CultureInvariant | RegexOptions.Compiled);
@@ -93,8 +91,7 @@ internal static class AudioEndpointResolver
         }
 
         AudioEndpoint[] headsetMatches = active
-            .Where(endpoint =>
-                endpoint.Name.Contains(HeadsetNameFragment, StringComparison.OrdinalIgnoreCase))
+            .Where(HeadsetEndpointScorer.LooksLikeHeadset)
             .ToArray();
         return headsetMatches.Length == 1 ? headsetMatches[0] : null;
     }
