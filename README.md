@@ -13,6 +13,15 @@ NovaConnect is a small Windows tray app for **SteelSeries Arctis Nova 5** headse
 
 ## Install and use
 
+### Installer (recommended)
+
+Run `NovaConnect-Setup-0.1.0.exe`. It installs per-user without administrator rights,
+adds **NovaConnect** to the Start Menu, and includes an uninstaller under both the Start
+Menu and Windows Installed Apps. Existing configuration under `%LOCALAPPDATA%\NovaConnect`
+is preserved across upgrades and uninstall.
+
+### Portable executable
+
 1. Put `NovaConnect.exe` in a stable folder.
 2. Run `NovaConnect.exe`.
 3. On first launch, confirm the four automatically detected endpoint choices:
@@ -35,13 +44,17 @@ The first-run detector selects the active endpoint whose name contains `Arctis N
 
 ## Build and test
 
-Requirements: Windows 10/11 and .NET 8 SDK.
+Requirements: Windows 10/11 and .NET 8 SDK. Inno Setup 6 is also required to build the installer.
 
 ```text
 dotnet test tests/NovaConnect.Core.Tests/NovaConnect.Core.Tests.csproj
 dotnet test tests/NovaConnect.App.Tests/NovaConnect.App.Tests.csproj
 dotnet publish src/NovaConnect.App/NovaConnect.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true
+pwsh -File installer/build-installer.ps1
 ```
+
+The installer build produces `artifacts/installer/NovaConnect-Setup-0.1.0.exe`. See
+[`installer/README.md`](installer/README.md) for the packaging and verification workflow.
 
 The application tests include non-mutating hardware checks for the attached Nova 5 dongle and Core Audio endpoint enumeration. The default-endpoint integration check only sets the current endpoint to itself.
 
