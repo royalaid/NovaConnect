@@ -22,6 +22,7 @@ internal sealed class NovaConnectApplicationContext : ApplicationContext
     private string _pendingStatus = "Starting…";
     private string? _lastError;
     private bool _settingsOpen;
+    private SettingsForm? _settingsForm;
     private bool _exitRequested;
 
     internal NovaConnectApplicationContext()
@@ -256,6 +257,7 @@ internal sealed class NovaConnectApplicationContext : ApplicationContext
                 shownConfiguration,
                 _pendingStatus,
                 StartupRegistration.IsEnabled());
+            _settingsForm = form;
             if (form.ShowDialog() != DialogResult.OK)
             {
                 return;
@@ -276,6 +278,7 @@ internal sealed class NovaConnectApplicationContext : ApplicationContext
         }
         finally
         {
+            _settingsForm = null;
             _settingsOpen = false;
         }
     }
@@ -404,6 +407,10 @@ internal sealed class NovaConnectApplicationContext : ApplicationContext
         string status = Volatile.Read(ref _pendingStatus);
         _statusItem.Text = status;
         _notifyIcon.Text = status.Length <= 63 ? status : status[..63];
+        if (_settingsForm is { IsDisposed: false } settingsForm)
+        {
+            settingsForm.UpdateStatus(status);
+        }
     }
 
     private void ShowBalloon(string title, string text, ToolTipIcon icon)

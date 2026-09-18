@@ -45,6 +45,47 @@ public sealed class SettingsFormLayoutTests
             Assert.All(endpointSelectors, selector => Assert.False(string.IsNullOrWhiteSpace(selector.AccessibleName)));
             NumericUpDown interval = Assert.Single(Descendants(form).OfType<NumericUpDown>());
             Assert.Equal("Detection interval in milliseconds", interval.AccessibleName);
+            Label status = Assert.Single(
+                Descendants(form).OfType<Label>(),
+                label => label.AccessibleName == "Headset status");
+            Assert.Contains("Headset connected, 85%", status.Text, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void UpdateStatus_Disconnect_RefreshesBannerTextAndTone()
+    {
+        RunInSta(() =>
+        {
+            AudioEndpoint[] endpoints =
+            [
+                new("headset-out", "Headphones (SteelSeries Arctis Nova 5)", AudioFlow.Playback, true),
+                new("speakers", "Speakers", AudioFlow.Playback, true),
+                new("headset-mic", "Microphone (SteelSeries Arctis Nova 5)", AudioFlow.Capture, true),
+                new("desk-mic", "Desk microphone", AudioFlow.Capture, true)
+            ];
+            var configuration = new AppConfiguration
+            {
+                HeadsetPlaybackId = "headset-out",
+                FallbackPlaybackId = "speakers",
+                HeadsetCaptureId = "headset-mic",
+                FallbackCaptureId = "desk-mic"
+            };
+
+            using var form = new SettingsForm(
+                endpoints,
+                configuration,
+                "Headset connected, 85%",
+                startWithWindows: false);
+
+            form.UpdateStatus("Headset disconnected");
+
+            Label status = Assert.Single(
+                Descendants(form).OfType<Label>(),
+                label => label.AccessibleName == "Headset status");
+            Assert.Contains("Headset disconnected", status.Text, StringComparison.Ordinal);
+            Assert.Equal(UiTheme.StatusForeground(StatusTone.Disconnected), status.ForeColor);
+            Assert.Equal(UiTheme.StatusBackground(StatusTone.Disconnected), status.BackColor);
         });
     }
 
