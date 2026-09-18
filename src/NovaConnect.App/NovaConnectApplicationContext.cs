@@ -163,6 +163,17 @@ internal sealed class NovaConnectApplicationContext : ApplicationContext
                 MonitorIterationResult result = await engine
                     .RunIterationAsync(cancellationToken)
                     .ConfigureAwait(false);
+                if (!AudioEndpointResolver.SameEndpointIdentity(configuration, result.Configuration))
+                {
+                    configuration = result.Configuration;
+                    _configuration = result.Configuration;
+                    ConfigurationStore.Save(_configurationPath, result.Configuration);
+                    _logger.Info(
+                        "Rebound audio endpoints after Windows reassigned device IDs: "
+                        + $"playback={result.Configuration.HeadsetPlaybackId}; "
+                        + $"capture={result.Configuration.HeadsetCaptureId}.");
+                }
+
                 _lastError = null;
                 string switching = configuration.Enabled ? string.Empty : " — switching disabled";
                 SetPendingStatus(
