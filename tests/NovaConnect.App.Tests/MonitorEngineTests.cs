@@ -143,6 +143,35 @@ public sealed class MonitorEngineTests
             audio.AppliedRoles);
     }
 
+    [Fact]
+    public async Task RunIterationAsync_StaleHeadsetEndpointIds_RebindByNameThenSwitch()
+    {
+        var statusSource = new FakeStatusSource(new Nova5Status(true, 32, Nova5ChargingState.OnBattery));
+        var audio = new RemappingAudioController();
+        var configuration = new AppConfiguration
+        {
+            HeadsetPlaybackId = "stale-headset-out",
+            HeadsetPlaybackName = "Headphones (3- SteelSeries Arctis Nova 5)",
+            FallbackPlaybackId = "speakers",
+            FallbackPlaybackName = "Speakers (Realtek(R) Audio)",
+            HeadsetCaptureId = "stale-headset-mic",
+            HeadsetCaptureName = "Headset Microphone (3- SteelSeries Arctis Nova 5)",
+            FallbackCaptureId = "desk-mic",
+            FallbackCaptureName = "Microphone (Steam Streaming Microphone)",
+            SwitchMicrophone = true,
+            SwitchOnStartup = true
+        };
+        var engine = new MonitorEngine(statusSource, audio, configuration);
+
+        MonitorIterationResult result = await engine.RunIterationAsync(CancellationToken.None);
+
+        Assert.Equal(ConnectionTransition.Connected, result.Transition);
+        Assert.Equal("live-headset-out", result.Configuration.HeadsetPlaybackId);
+        Assert.Equal("live-headset-mic", result.Configuration.HeadsetCaptureId);
+        Assert.Equal((AudioFlow.Playback, "live-headset-out"), audio.Applied[0]);
+        Assert.Equal((AudioFlow.Capture, "live-headset-mic"), audio.Applied[1]);
+    }
+
     private sealed class FakeStatusSource(Nova5Status status) : IHeadsetStatusSource
     {
         public Task<Nova5Status> QueryOnceAsync(CancellationToken cancellationToken) =>
@@ -182,6 +211,8 @@ public sealed class MonitorEngineTests
             return new DefaultEndpointSnapshot(id, id, id);
         }
 
+        public IReadOnlyList<AudioEndpoint> EnumerateEndpoints() => [];
+
         public void SetDefaultEndpoints(
             AudioFlow flow,
             string endpointId,
@@ -197,6 +228,8 @@ public sealed class MonitorEngineTests
 
         public DefaultEndpointSnapshot GetDefaultEndpointIds(AudioFlow flow) =>
             flow == AudioFlow.Playback ? playback : capture;
+
+        public IReadOnlyList<AudioEndpoint> EnumerateEndpoints() => [];
 
         public void SetDefaultEndpoints(
             AudioFlow flow,
@@ -222,6 +255,8 @@ public sealed class MonitorEngineTests
             return new DefaultEndpointSnapshot(id, id, id);
         }
 
+        public IReadOnlyList<AudioEndpoint> EnumerateEndpoints() => [];
+
         public void SetDefaultEndpoints(
             AudioFlow flow,
             string endpointId,
@@ -231,6 +266,38 @@ public sealed class MonitorEngineTests
             {
                 _failNextSet = false;
                 throw new InvalidOperationException("simulated endpoint failure");
+            }
+
+            Applied.Add((flow, endpointId));
+        }
+    }
+
+    private sealed class RemappingAudioController : IAudioEndpointController
+    {
+        public List<(AudioFlow Flow, string Id)> Applied { get; } = [];
+
+        public DefaultEndpointSnapshot GetDefaultEndpointIds(AudioFlow flow)
+        {
+            string id = flow == AudioFlow.Playback ? "speakers" : "desk-mic";
+            return new DefaultEndpointSnapshot(id, id, id);
+        }
+
+        public IReadOnlyList<AudioEndpoint> EnumerateEndpoints() =>
+        [
+            new("live-headset-out", "Headphones (3- SteelSeries Arctis Nova 5)", AudioFlow.Playback, true),
+            new("speakers", "Speakers (Realtek(R) Audio)", AudioFlow.Playback, true),
+            new("live-headset-mic", "Headset Microphone (3- SteelSeries Arctis Nova 5)", AudioFlow.Capture, true),
+            new("desk-mic", "Microphone (Steam Streaming Microphone)", AudioFlow.Capture, true)
+        ];
+
+        public void SetDefaultEndpoints(
+            AudioFlow flow,
+            string endpointId,
+            IReadOnlyCollection<DefaultEndpointRole> roles)
+        {
+            if (endpointId.StartsWith("stale", StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException($"Audio endpoint '{endpointId}' is not active.");
             }
 
             Applied.Add((flow, endpointId));

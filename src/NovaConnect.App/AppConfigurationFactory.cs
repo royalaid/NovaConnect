@@ -2,7 +2,7 @@ namespace NovaConnect.App;
 
 internal static class AppConfigurationFactory
 {
-    private const string HeadsetNameFragment = "Arctis Nova 5";
+    private const string HeadsetNameFragment = AudioEndpointResolver.HeadsetNameFragment;
 
     internal static AppConfiguration Create(
         IReadOnlyList<AudioEndpoint> endpoints,

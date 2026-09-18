@@ -10,6 +10,7 @@ internal interface IHeadsetStatusSource
 internal interface IAudioEndpointController
 {
     DefaultEndpointSnapshot GetDefaultEndpointIds(AudioFlow flow);
+    IReadOnlyList<AudioEndpoint> EnumerateEndpoints();
     void SetDefaultEndpoints(
         AudioFlow flow,
         string endpointId,
@@ -27,6 +28,9 @@ internal sealed class CoreAudioEndpointController : IAudioEndpointController
     public DefaultEndpointSnapshot GetDefaultEndpointIds(AudioFlow flow) =>
         CoreAudioService.GetDefaultEndpointIds(flow);
 
+    public IReadOnlyList<AudioEndpoint> EnumerateEndpoints() =>
+        CoreAudioService.EnumerateEndpoints();
+
     public void SetDefaultEndpoints(
         AudioFlow flow,
         string endpointId,
@@ -37,13 +41,14 @@ internal sealed class CoreAudioEndpointController : IAudioEndpointController
 internal readonly record struct MonitorIterationResult(
     Nova5Status Status,
     ConnectionTransition Transition,
-    RoleEndpointSwitchPlan Plan);
+    RoleEndpointSwitchPlan Plan,
+    AppConfiguration Configuration);
 
 internal sealed class MonitorEngine
 {
     private readonly IHeadsetStatusSource _statusSource;
     private readonly IAudioEndpointController _audio;
-    private readonly AppConfiguration _configuration;
+    private AppConfiguration _configuration;
     private readonly ConnectionTransitionDetector _transitionDetector;
     private readonly DisconnectDebouncer _disconnectDebouncer = new(requiredDisconnectedSamples: 2);
 
@@ -60,6 +65,10 @@ internal sealed class MonitorEngine
 
     internal async Task<MonitorIterationResult> RunIterationAsync(CancellationToken cancellationToken)
     {
+        _configuration = AudioEndpointResolver.Resolve(
+            _configuration,
+            _audio.EnumerateEndpoints());
+
         Nova5Status status;
         try
         {
@@ -77,7 +86,8 @@ internal sealed class MonitorEngine
             return new MonitorIterationResult(
                 status,
                 ConnectionTransition.None,
-                RoleEndpointSwitchPlan.None);
+                RoleEndpointSwitchPlan.None,
+                _configuration);
         }
 
         ConnectionTransition transition = _transitionDetector.Observe(confirmedConnectionState.Value);
@@ -116,6 +126,6 @@ internal sealed class MonitorEngine
             }
         }
 
-        return new MonitorIterationResult(status, transition, plan);
+        return new MonitorIterationResult(status, transition, plan, _configuration);
     }
 }
