@@ -259,7 +259,7 @@ internal sealed class SettingsForm : Form
         });
         text.Controls.Add(new Label
         {
-            Text = "Arctis Nova 5 audio routing",
+            Text = "Switch audio when a headset connects or disconnects",
             AutoSize = true,
             BackColor = UiTheme.Window,
             ForeColor = UiTheme.MutedText,
@@ -299,16 +299,16 @@ internal sealed class SettingsForm : Form
         var card = CreateCard("Audio routing");
         card.Controls.Add(CreateSubheading("Playback"));
         var playback = CreateEndpointTable();
-        AddEndpointRow(playback, 0, "Headset on", "Playback when headset is on", _headsetPlayback);
-        AddEndpointRow(playback, 1, "Headset off", "Playback when headset is off", _fallbackPlayback);
+        AddEndpointRow(playback, 0, "Connected", "Playback when the headset is connected", _headsetPlayback);
+        AddEndpointRow(playback, 1, "Disconnected", "Playback when the headset is disconnected", _fallbackPlayback);
         playback.Margin = new Padding(0, 0, 0, 9);
         card.Controls.Add(playback);
 
         _switchMicrophone.Margin = new Padding(0, 0, 0, 4);
         card.Controls.Add(_switchMicrophone);
         var microphone = CreateEndpointTable();
-        AddEndpointRow(microphone, 0, "Headset on", "Microphone when headset is on", _headsetCapture);
-        AddEndpointRow(microphone, 1, "Headset off", "Microphone when headset is off", _fallbackCapture);
+        AddEndpointRow(microphone, 0, "Connected", "Microphone when the headset is connected", _headsetCapture);
+        AddEndpointRow(microphone, 1, "Disconnected", "Microphone when the headset is disconnected", _fallbackCapture);
         card.Controls.Add(microphone);
         return card;
     }

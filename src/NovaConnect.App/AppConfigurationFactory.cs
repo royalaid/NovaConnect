@@ -2,15 +2,17 @@ namespace NovaConnect.App;
 
 internal static class AppConfigurationFactory
 {
-    private const string HeadsetNameFragment = AudioEndpointResolver.HeadsetNameFragment;
-
     internal static AppConfiguration Create(
         IReadOnlyList<AudioEndpoint> endpoints,
         string? currentPlaybackId,
         string? currentCaptureId)
     {
-        AudioEndpoint? headsetPlayback = FindHeadset(endpoints, AudioFlow.Playback);
-        AudioEndpoint? headsetCapture = FindHeadset(endpoints, AudioFlow.Capture);
+        AudioEndpoint? headsetPlayback = FindHeadset(endpoints, AudioFlow.Playback, currentPlaybackId);
+        AudioEndpoint? headsetCapture = FindHeadset(
+            endpoints,
+            AudioFlow.Capture,
+            currentCaptureId,
+            headsetPlayback);
         AudioEndpoint? fallbackPlayback = FindFallback(
             endpoints,
             AudioFlow.Playback,
@@ -38,10 +40,18 @@ internal static class AppConfigurationFactory
 
     private static AudioEndpoint? FindHeadset(
         IEnumerable<AudioEndpoint> endpoints,
-        AudioFlow flow) => endpoints.FirstOrDefault(endpoint =>
-            endpoint.Flow == flow
-            && endpoint.IsActive
-            && endpoint.Name.Contains(HeadsetNameFragment, StringComparison.OrdinalIgnoreCase));
+        AudioFlow flow,
+        string? currentId,
+        AudioEndpoint? pairedPlayback = null) => endpoints
+        .Where(endpoint => endpoint.Flow == flow && endpoint.IsActive)
+        .Select(endpoint => (endpoint, score: HeadsetEndpointScorer.Score(endpoint, pairedPlayback)))
+        .Where(candidate => candidate.score > 0)
+        .OrderByDescending(candidate =>
+            string.Equals(candidate.endpoint.Id, currentId, StringComparison.OrdinalIgnoreCase))
+        .ThenByDescending(candidate => candidate.score)
+        .ThenBy(candidate => candidate.endpoint.Name, StringComparer.CurrentCultureIgnoreCase)
+        .Select(candidate => candidate.endpoint)
+        .FirstOrDefault();
 
     private static AudioEndpoint? FindFallback(
         IReadOnlyList<AudioEndpoint> endpoints,
@@ -49,15 +59,23 @@ internal static class AppConfigurationFactory
         string? currentId,
         string? headsetId)
     {
-        AudioEndpoint? current = endpoints.FirstOrDefault(endpoint =>
-            endpoint.Flow == flow
-            && endpoint.IsActive
-            && string.Equals(endpoint.Id, currentId, StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(endpoint.Id, headsetId, StringComparison.OrdinalIgnoreCase));
+        AudioEndpoint[] others = endpoints
+            .Where(endpoint =>
+                endpoint.Flow == flow
+                && endpoint.IsActive
+                && !string.Equals(endpoint.Id, headsetId, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
 
-        return current ?? endpoints.FirstOrDefault(endpoint =>
-            endpoint.Flow == flow
-            && endpoint.IsActive
-            && !string.Equals(endpoint.Id, headsetId, StringComparison.OrdinalIgnoreCase));
+        AudioEndpoint? current = others.FirstOrDefault(endpoint =>
+            string.Equals(endpoint.Id, currentId, StringComparison.OrdinalIgnoreCase));
+        if (current is not null && !HeadsetEndpointScorer.LooksLikeHeadset(current))
+        {
+            return current;
+        }
+
+        return others
+            .OrderBy(endpoint => HeadsetEndpointScorer.LooksLikeHeadset(endpoint) ? 1 : 0)
+            .ThenBy(endpoint => endpoint.Name, StringComparer.CurrentCultureIgnoreCase)
+            .FirstOrDefault() ?? current;
     }
 }

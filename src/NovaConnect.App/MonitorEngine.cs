@@ -65,14 +65,13 @@ internal sealed class MonitorEngine
 
     internal async Task<MonitorIterationResult> RunIterationAsync(CancellationToken cancellationToken)
     {
-        _configuration = AudioEndpointResolver.Resolve(
-            _configuration,
-            _audio.EnumerateEndpoints());
+        IReadOnlyList<AudioEndpoint> endpoints = _audio.EnumerateEndpoints();
+        _configuration = AudioEndpointResolver.Resolve(_configuration, endpoints);
 
         Nova5Status status;
         try
         {
-            status = await _statusSource.QueryOnceAsync(cancellationToken).ConfigureAwait(false);
+            status = await ReadStatusAsync(endpoints, cancellationToken).ConfigureAwait(false);
         }
         catch
         {
@@ -127,5 +126,31 @@ internal sealed class MonitorEngine
         }
 
         return new MonitorIterationResult(status, transition, plan, _configuration);
+    }
+
+    private async Task<Nova5Status> ReadStatusAsync(
+        IReadOnlyList<AudioEndpoint> endpoints,
+        CancellationToken cancellationToken)
+    {
+        AudioEndpoint? headsetPlayback = endpoints.FirstOrDefault(endpoint =>
+            endpoint.Flow == AudioFlow.Playback
+            && string.Equals(
+                endpoint.Id,
+                _configuration.HeadsetPlaybackId,
+                StringComparison.OrdinalIgnoreCase));
+
+        if (headsetPlayback is { IsActive: false })
+        {
+            return new Nova5Status(false, 0, Nova5ChargingState.Unknown);
+        }
+
+        try
+        {
+            return await _statusSource.QueryOnceAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (InvalidOperationException) when (headsetPlayback is { IsActive: true })
+        {
+            return new Nova5Status(true, 0, Nova5ChargingState.Unknown);
+        }
     }
 }
