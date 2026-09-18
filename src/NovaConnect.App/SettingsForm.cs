@@ -380,30 +380,64 @@ internal sealed class SettingsForm : Form
         IReadOnlyList<AudioEndpoint> endpoints,
         AppConfiguration configuration)
     {
-        PopulateCombo(_headsetPlayback, endpoints, AudioFlow.Playback, configuration.HeadsetPlaybackId);
-        PopulateCombo(_fallbackPlayback, endpoints, AudioFlow.Playback, configuration.FallbackPlaybackId);
-        PopulateCombo(_headsetCapture, endpoints, AudioFlow.Capture, configuration.HeadsetCaptureId);
-        PopulateCombo(_fallbackCapture, endpoints, AudioFlow.Capture, configuration.FallbackCaptureId);
+        PopulateCombo(
+            _headsetPlayback,
+            endpoints,
+            AudioFlow.Playback,
+            configuration.HeadsetPlaybackId,
+            configuration.HeadsetPlaybackName,
+            headsetSlot: true);
+        PopulateCombo(
+            _fallbackPlayback,
+            endpoints,
+            AudioFlow.Playback,
+            configuration.FallbackPlaybackId,
+            configuration.FallbackPlaybackName,
+            headsetSlot: false);
+        PopulateCombo(
+            _headsetCapture,
+            endpoints,
+            AudioFlow.Capture,
+            configuration.HeadsetCaptureId,
+            configuration.HeadsetCaptureName,
+            headsetSlot: true);
+        PopulateCombo(
+            _fallbackCapture,
+            endpoints,
+            AudioFlow.Capture,
+            configuration.FallbackCaptureId,
+            configuration.FallbackCaptureName,
+            headsetSlot: false);
     }
 
     private static void PopulateCombo(
         ComboBox combo,
         IEnumerable<AudioEndpoint> endpoints,
         AudioFlow flow,
-        string? selectedId)
+        string? selectedId,
+        string? selectedName,
+        bool headsetSlot)
     {
+        AudioEndpoint[] active = endpoints
+            .Where(endpoint => endpoint.Flow == flow && endpoint.IsActive)
+            .ToArray();
+
         combo.BeginUpdate();
         combo.Items.Clear();
-        foreach (AudioEndpoint endpoint in endpoints.Where(endpoint => endpoint.Flow == flow && endpoint.IsActive))
+        foreach (AudioEndpoint endpoint in active)
         {
             combo.Items.Add(endpoint);
         }
 
         combo.DisplayMember = nameof(AudioEndpoint.Name);
-        AudioEndpoint? selected = combo.Items
-            .Cast<AudioEndpoint>()
-            .FirstOrDefault(endpoint => string.Equals(endpoint.Id, selectedId, StringComparison.OrdinalIgnoreCase));
-        combo.SelectedItem = selected ?? (combo.Items.Count > 0 ? combo.Items[0] : null);
+        AudioEndpoint? selected = AudioEndpointResolver.Match(
+            active,
+            flow,
+            selectedId,
+            selectedName,
+            headsetSlot);
+        combo.SelectedItem = selected
+            ?? (headsetSlot || combo.Items.Count == 0 ? null : combo.Items[0]);
         combo.EndUpdate();
     }
 
