@@ -23,7 +23,7 @@ Build the application and installer:
 pwsh -File installer/build-installer.ps1
 ```
 
-The output is `artifacts/installer/NovaConnect-Setup-0.1.0.exe`.
+The output is `artifacts/installer/NovaConnect-Setup-0.1.1.exe`.
 
 ## Verify
 
@@ -35,5 +35,5 @@ uninstaller, confirms cleanup, and restores the pre-test startup value.
 
 ```powershell
 pwsh -File installer/verify-installer.ps1 `
-  -InstallerPath artifacts/installer/NovaConnect-Setup-0.1.0.exe
+  -InstallerPath artifacts/installer/NovaConnect-Setup-0.1.1.exe
 ```

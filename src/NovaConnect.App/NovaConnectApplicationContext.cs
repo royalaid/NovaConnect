@@ -9,6 +9,8 @@ internal sealed class NovaConnectApplicationContext : ApplicationContext
     private readonly string _configurationPath = AppConfiguration.DefaultPath;
     private readonly string _logPath = Path.Combine(AppConfiguration.DefaultDirectory, "NovaConnect.log");
     private readonly FileLogger _logger;
+    private readonly Icon _trayIcon;
+    private readonly ContextMenuStrip _contextMenu;
     private readonly NotifyIcon _notifyIcon;
     private readonly ToolStripMenuItem _statusItem;
     private readonly ToolStripMenuItem _enabledItem;
@@ -25,6 +27,7 @@ internal sealed class NovaConnectApplicationContext : ApplicationContext
     internal NovaConnectApplicationContext()
     {
         _logger = new FileLogger(_logPath);
+        _trayIcon = BrandIcons.CreateTrayIcon();
         _configuration = LoadOrCreateConfiguration(out bool needsReview);
 
         _statusItem = new ToolStripMenuItem(_pendingStatus) { Enabled = false };
@@ -41,24 +44,37 @@ internal sealed class NovaConnectApplicationContext : ApplicationContext
         };
         _startupItem.CheckedChanged += (_, _) => ToggleStartup();
 
-        var menu = new ContextMenuStrip();
-        menu.Items.Add(_statusItem);
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(_enabledItem);
-        menu.Items.Add("Switch to headset now", null, (_, _) => SwitchNow(toHeadset: true));
-        menu.Items.Add("Switch to fallback now", null, (_, _) => SwitchNow(toHeadset: false));
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(_startupItem);
-        menu.Items.Add("Settings…", null, (_, _) => ShowSettings());
-        menu.Items.Add("Open log folder", null, (_, _) => OpenDataFolder());
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("Exit", null, (_, _) => ExitThread());
+        _contextMenu = new ContextMenuStrip
+        {
+            BackColor = UiTheme.Surface,
+            ForeColor = UiTheme.Text,
+            Font = UiTheme.BodyFont,
+            Renderer = new ToolStripProfessionalRenderer(new DarkToolStripColorTable()),
+            ShowCheckMargin = true,
+            ShowImageMargin = false
+        };
+        _statusItem.ForeColor = UiTheme.MutedText;
+        _contextMenu.Items.Add(_statusItem);
+        _contextMenu.Items.Add(new ToolStripSeparator());
+        _contextMenu.Items.Add(_enabledItem);
+        _contextMenu.Items.Add("Switch to headset now", null, (_, _) => SwitchNow(toHeadset: true));
+        _contextMenu.Items.Add("Switch to fallback now", null, (_, _) => SwitchNow(toHeadset: false));
+        _contextMenu.Items.Add(new ToolStripSeparator());
+        _contextMenu.Items.Add(_startupItem);
+        var settingsItem = new ToolStripMenuItem("Settings…", null, (_, _) => ShowSettings())
+        {
+            Font = UiTheme.ButtonFont
+        };
+        _contextMenu.Items.Add(settingsItem);
+        _contextMenu.Items.Add("Open log folder", null, (_, _) => OpenDataFolder());
+        _contextMenu.Items.Add(new ToolStripSeparator());
+        _contextMenu.Items.Add("Exit", null, (_, _) => ExitThread());
 
         _notifyIcon = new NotifyIcon
         {
-            Text = "NovaConnect — starting",
-            Icon = SystemIcons.Information,
-            ContextMenuStrip = menu,
+            Text = "NovaConnect - starting",
+            Icon = _trayIcon,
+            ContextMenuStrip = _contextMenu,
             Visible = true
         };
         _notifyIcon.DoubleClick += (_, _) => ShowSettings();
@@ -175,10 +191,10 @@ internal sealed class NovaConnectApplicationContext : ApplicationContext
                 }
 
                 _lastError = null;
-                string switching = configuration.Enabled ? string.Empty : " — switching disabled";
+                string switching = configuration.Enabled ? string.Empty : " (switching disabled)";
                 SetPendingStatus(
                     result.Status.IsConnected
-                        ? $"Headset connected — {result.Status.BatteryPercent}%{switching}"
+                        ? $"Headset connected, {result.Status.BatteryPercent}%{switching}"
                         : $"Headset disconnected{switching}");
 
                 if (result.Transition != ConnectionTransition.None)
@@ -428,6 +444,8 @@ internal sealed class NovaConnectApplicationContext : ApplicationContext
                     _uiTimer.Dispose();
                     _notifyIcon.Visible = false;
                     _notifyIcon.Dispose();
+                    _contextMenu.Dispose();
+                    _trayIcon.Dispose();
                     _logger.Info("NovaConnect stopped.");
                 },
                 base.ExitThreadCore);

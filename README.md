@@ -15,7 +15,7 @@ NovaConnect is a small Windows tray app for **SteelSeries Arctis Nova 5** headse
 
 ### Installer (recommended)
 
-Run `NovaConnect-Setup-0.1.0.exe`. It installs per-user without administrator rights,
+Run `NovaConnect-Setup-0.1.1.exe`. It installs per-user without administrator rights,
 adds **NovaConnect** to the Start Menu, and includes an uninstaller under both the Start
 Menu and Windows Installed Apps. Existing configuration under `%LOCALAPPDATA%\NovaConnect`
 is preserved across upgrades and uninstall.
@@ -53,7 +53,7 @@ dotnet publish src/NovaConnect.App/NovaConnect.App.csproj -c Release -r win-x64 
 pwsh -File installer/build-installer.ps1
 ```
 
-The installer build produces `artifacts/installer/NovaConnect-Setup-0.1.0.exe`. See
+The installer build produces `artifacts/installer/NovaConnect-Setup-0.1.1.exe`. See
 [`installer/README.md`](installer/README.md) for the packaging and verification workflow.
 
 The application tests include non-mutating hardware checks for the attached Nova 5 dongle and Core Audio endpoint enumeration. The default-endpoint integration check only sets the current endpoint to itself.
