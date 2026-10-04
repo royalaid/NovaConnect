@@ -34,6 +34,8 @@ is preserved across upgrades and uninstall.
 
 Double-click the tray icon to reopen Settings. The tray menu can switch either profile immediately, disable automatic switching, open the log folder, or exit.
 
+The tray shows headphones when the headset is connected and a speaker when it is disconnected, including when automatic switching is disabled. While starting or when headset status is unavailable, it shows the NovaConnect logo. The icon reflects headset connection state; manual audio selections do not change it.
+
 Configuration and logs are stored under `%LOCALAPPDATA%\NovaConnect`. The log rotates at 1 MiB and keeps one previous file. The optional startup entry is a per-user `HKCU\...\Run` value and can be removed by clearing the checkbox.
 
 ## Safety behavior

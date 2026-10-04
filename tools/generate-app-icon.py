@@ -14,7 +14,7 @@ def blend(start: tuple[int, int, int], end: tuple[int, int, int], amount: float)
     return tuple(round(a + ((b - a) * amount)) for a, b in zip(start, end)) + (255,)
 
 
-def render_icon(size: int) -> Image.Image:
+def render_background(size: int) -> Image.Image:
     scale = 4
     canvas_size = size * scale
     image = Image.new("RGBA", (canvas_size, canvas_size), (0, 0, 0, 0))
@@ -38,6 +38,13 @@ def render_icon(size: int) -> Image.Image:
             fill=blend(top, bottom, y / (canvas_size - 1)),
         )
     image.paste(gradient, mask=mask)
+    return image
+
+
+def render_icon(size: int) -> Image.Image:
+    scale = 4
+    canvas_size = size * scale
+    image = render_background(size)
 
     draw = ImageDraw.Draw(image)
     white = (248, 250, 252, 255)
@@ -54,6 +61,39 @@ def render_icon(size: int) -> Image.Image:
         draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=white)
 
     return image.resize((size, size), Image.Resampling.LANCZOS)
+
+
+def render_connection_icon(size: int, connected: bool) -> Image.Image:
+    image = render_background(size)
+    draw = ImageDraw.Draw(image)
+    unit = image.width / 16
+    white = (248, 250, 252, 255)
+
+    def box(coords: tuple[float, ...]) -> tuple[int, ...]:
+        return tuple(round(value * unit) for value in coords)
+
+    if connected:
+        draw.arc(box((3, 3, 13, 13)), 180, 360, fill=white, width=round(1.5 * unit))
+        draw.rounded_rectangle(box((2.5, 7.5, 5.5, 13)), radius=round(unit), fill=white)
+        draw.rounded_rectangle(box((10.5, 7.5, 13.5, 13)), radius=round(unit), fill=white)
+    else:
+        draw.polygon(
+            [box(point) for point in ((2.5, 6), (5, 6), (8, 3.5), (8, 12.5), (5, 10), (2.5, 10))],
+            fill=white,
+        )
+        draw.arc(box((6, 5, 11.5, 11)), -60, 60, fill=white, width=round(unit))
+        draw.arc(box((5, 2.5, 14, 13.5)), -55, 55, fill=white, width=round(unit))
+
+    return image.resize((size, size), Image.Resampling.LANCZOS)
+
+
+def save_ico(path: Path, frames: dict[int, Image.Image]) -> None:
+    frames[256].save(
+        path,
+        format="ICO",
+        sizes=[(size, size) for size in ICON_SIZES],
+        append_images=[frames[size] for size in ICON_SIZES if size != 256],
+    )
 
 
 def render_sheet(frames: dict[int, Image.Image]) -> Image.Image:
@@ -81,17 +121,18 @@ def main() -> None:
     ASSET_PATH.parent.mkdir(parents=True, exist_ok=True)
     PREVIEW_PATH.parent.mkdir(parents=True, exist_ok=True)
     frames = {size: render_icon(size) for size in ICON_SIZES}
-    frames[256].save(
-        ASSET_PATH,
-        format="ICO",
-        sizes=[(size, size) for size in ICON_SIZES],
-        append_images=[frames[size] for size in ICON_SIZES if size != 256],
-    )
+    save_ico(ASSET_PATH, frames)
     frames[256].save(PREVIEW_PATH)
     render_sheet(frames).save(SHEET_PATH)
     print(ASSET_PATH)
     print(PREVIEW_PATH)
     print(SHEET_PATH)
+    for name, connected in (("Headphones", True), ("Speaker", False)):
+        frames = {size: render_connection_icon(size, connected) for size in ICON_SIZES}
+        path = ASSET_PATH.with_name(f"{name}.ico")
+        save_ico(path, frames)
+        render_sheet(frames).save(SHEET_PATH.with_name(f"{name}-icon-sheet.png"))
+        print(path)
 
 
 if __name__ == "__main__":

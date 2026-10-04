@@ -20,6 +20,8 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Assets\NovaConnect.ico" LogicalName="NovaConnect.App.Assets.NovaConnect.ico" />
+    <EmbeddedResource Include="Assets\Headphones.ico" LogicalName="NovaConnect.App.Assets.Headphones.ico" />
+    <EmbeddedResource Include="Assets\Speaker.ico" LogicalName="NovaConnect.App.Assets.Speaker.ico" />
   </ItemGroup>
   <ItemGroup>
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
