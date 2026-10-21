@@ -23,6 +23,8 @@ NovaConnect is a small Windows tray application for SteelSeries Arctis Nova 5 (`
 
 ## Safety and footprint
 
+- The tray icon shows headphones for a connected headset, a speaker for a disconnected headset, and the NovaConnect logo for startup, unavailable status, or configuration errors. It follows the reported connection state even with automatic switching disabled, rather than the Windows default audio endpoint.
+
 - No firmware, EQ, volume, or device-setting writes. The only HID write is the read-only status query `B0`.
 - No service, driver, administrator rights, telemetry, network access, or SteelSeries process is required.
 - Configuration and logs are per-user under `%LOCALAPPDATA%\NovaConnect`; logs rotate at 1 MiB with one previous generation.

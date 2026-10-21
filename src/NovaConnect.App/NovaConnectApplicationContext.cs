@@ -10,6 +10,8 @@ internal sealed class NovaConnectApplicationContext : ApplicationContext
     private readonly string _logPath = Path.Combine(AppConfiguration.DefaultDirectory, "NovaConnect.log");
     private readonly FileLogger _logger;
     private readonly Icon _trayIcon;
+    private readonly Icon _headphonesTrayIcon;
+    private readonly Icon _speakerTrayIcon;
     private readonly ContextMenuStrip _contextMenu;
     private readonly NotifyIcon _notifyIcon;
     private readonly ToolStripMenuItem _statusItem;
@@ -29,6 +31,8 @@ internal sealed class NovaConnectApplicationContext : ApplicationContext
     {
         _logger = new FileLogger(_logPath);
         _trayIcon = BrandIcons.CreateTrayIcon();
+        _headphonesTrayIcon = BrandIcons.CreateTrayIcon(StatusTone.Connected);
+        _speakerTrayIcon = BrandIcons.CreateTrayIcon(StatusTone.Disconnected);
         _configuration = LoadOrCreateConfiguration(out bool needsReview);
 
         _statusItem = new ToolStripMenuItem(_pendingStatus) { Enabled = false };
@@ -405,6 +409,17 @@ internal sealed class NovaConnectApplicationContext : ApplicationContext
     private void ApplyPendingStatus()
     {
         string status = Volatile.Read(ref _pendingStatus);
+        Icon icon = StatusPresentation.FromText(status).Tone switch
+        {
+            StatusTone.Connected => _headphonesTrayIcon,
+            StatusTone.Disconnected => _speakerTrayIcon,
+            _ => _trayIcon
+        };
+        if (!ReferenceEquals(_notifyIcon.Icon, icon))
+        {
+            _notifyIcon.Icon = icon;
+        }
+
         _statusItem.Text = status;
         _notifyIcon.Text = status.Length <= 63 ? status : status[..63];
         if (_settingsForm is { IsDisposed: false } settingsForm)
@@ -453,6 +468,8 @@ internal sealed class NovaConnectApplicationContext : ApplicationContext
                     _notifyIcon.Dispose();
                     _contextMenu.Dispose();
                     _trayIcon.Dispose();
+                    _headphonesTrayIcon.Dispose();
+                    _speakerTrayIcon.Dispose();
                     _logger.Info("NovaConnect stopped.");
                 },
                 base.ExitThreadCore);
